@@ -1,0 +1,31 @@
+{% extends 'wrk_cell_base.html' %}
+{% block content %}
+ 
+    <table class="table table-bordered  text-nowrap">
+        <th> ID </th> 
+        <th> RMS Voltage </th> 
+        <th> RMS Current </th> 
+        <th> Power(W) </th> 
+        <th> Nominal Power </th> 
+        <th> Active Zones of CNV </th> 
+        <th> Load on CNV</th>
+        <th> Measurement Time </th>
+        {% if (measurements|length)>0 %}
+            <h1>Measurements for Workstation_{{measurements[0].WorkCellID}}</h1>
+            {% for measurement in measurements %}
+            <tr> 
+                <td> {{ loop.index }} </td>
+                <td> {{ measurement.RmsVoltage }} </td>
+                <td> {{ measurement.RmsCurrent }} </td>
+                <td> {{ measurement.Power }} </td>
+                <td> {{ measurement.Nominal_Power}} </td> 
+                <td> {{ measurement.ActiveZones }} </td>
+                <td> {{ measurement.Load }} </td> 
+                <td> {{ measurement.timestamp }} </td>        
+            </tr>  
+            {% endfor %}  
+            
+        {% endif %}
+    </table>
+    
+{% endblock %}

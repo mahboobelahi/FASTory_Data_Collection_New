@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block content %}
+    <h1>FASTory Line's Workstations:</h1>
+    <div id="list-example" class="list-group">
+        <ul>
+            {% for workstation in content %}
+
+             <a class="Light link list-group-item list-group-item-action" href="{{workstation.WorkCellIP}}/">Workstation_{{workstation.WorkCellID}}</a>
+
+            {% endfor %}
+        </ul>
+    </div>
+    
+{% endblock %}
