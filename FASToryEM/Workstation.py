@@ -1,3 +1,4 @@
+import csv
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt 
@@ -228,8 +229,8 @@ class Workstation:
         app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:mahboobelahi93@localhost/fastoryemdb'
         app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
         db = SQLAlchemy(app)
-        # welcom route
-
+        
+        # Flask application routes
         @app.route('/', methods=['GET'])
         def home():
             
@@ -243,6 +244,7 @@ class Workstation:
                                      title='Information',
                                      info=WorkstationInfo.query.get(self.ID))
 
+        #EM measurements from FASTory received here and stored to DB
         @app.route('/measurements', methods=['GET','POST'])
         def insert_measurements2Db():
             global count, power, stop_recording
@@ -255,16 +257,9 @@ class Workstation:
                                             title='History',
                                             measurements=measurements)
                 else:
-                    return f'<h1>WorkCell_{self.ID} has no S1000 Energy Modules </h1>'
+                    return jsonify({"EM-Module":self.EM,"Message": f"Workstation_{self.ID} has no S1000-EM modules" },{"Measurements":[]})
             else:
                 if self.EM:
-                    #####For RT test###################
-                    data_in=request.json
-                    self.update_PVC(data_in.get("active_power_c"),
-                    data_in.get("rms_voltage_c"),
-                    data_in.get("rms_current_c"))
-                    return jsonify({"results":data_in.get("active_power_c")})
-                    ############################
                     az,l = self.get_ZoneStatus()
                     print(type(request.json))
                     print(request.json)
@@ -297,10 +292,10 @@ class Workstation:
                         req_V=requests.post(url=f'{CONFIG.SYNCH_URL}/sendMeasurement?externalId={self.external_ID}&fragment=CurrentMeasurement&value={measurements[2]}&unit=A')
                         req_A=requests.post(url=f'{CONFIG.SYNCH_URL}/sendMeasurement?externalId={self.external_ID}&fragment=VoltageMeasurement&value={measurements[1]}&unit=V')
                         req_P=requests.post(url=f'{CONFIG.SYNCH_URL}/sendMeasurement?externalId={self.external_ID}&fragment=PowerMeasurement&value={measurements[3]}&unit=W' )
-                        #for real-time plot
-                        self.update_PVC(Power, RmsVoltage,RmsCurrent)
+                        #for real-time plot ---->  power,voltage,current
+                        self.update_PVC(measurements[3], measurements[1],measurements[2])
                         return jsonify({"results":data_in.get("active_power_c")})
-                    Self.set_stop_recording()
+                    self.set_stop_recording()
                     time.sleep(10)
                 #print( f'{req_A.status_code}, {req_V.status_code}, {req_P.status_code}, {req_pred.status_code}, {external_ID}',{row["Class_3"]})
                 return'NOT-OK'
@@ -377,25 +372,81 @@ class Workstation:
             else:
                 res= self.invoke_EM_service()
                 return res
-        #measurements simulations
+        
+        # simulation routes
+        @app.route('/simulate_predicitons',methods=['POST'])
+        def simulate_predictions():
+            def send_():
+                while(True):
+                    try:
+                        payload = {"externalId":self.external_ID,
+                            "fragment": f'belt-tension-class-pred'
+                            }  
+                        with open(CONFIG.FILE_NAME, 'r') as file: #with open('N_Measurements9.csv', 'r') as file:
+                            reader = csv.DictReader(file)                       
+                            # sending measurements to ZDMP-DAQ
+                            for row in reader:
+                                Power = row["Power (W)"]
+                                load = row["Load Combinations"]
+                                features= np.round(np.array(np.append( CONFIG.Power_scaler.transform( [[Power]] ),
+                                 CONFIG.Load_scaler.transform( [[load]] ) ),
+                                  ndmin=2),4)
+                                  
+                                req_pred=requests.post(url=f'{CONFIG.SYNCH_URL}/sendCustomMeasurement',
+                                            params=payload,
+                                            json={"powerConsumption": round(features[0][0],3),
+                                                    "load":round(features[0][1],3)},
+                                                    timeout=3)
+                                req_V=requests.post(url=f'{CONFIG.SYNCH_URL}/sendMeasurement?externalId={self.external_ID}&fragment=CurrentMeasurement&value={row["RMS Current (A)"]}&unit=A')
+                                req_A=requests.post(url=f'{CONFIG.SYNCH_URL}/sendMeasurement?externalId={self.external_ID}&fragment=VoltageMeasurement&value={row["RMS Voltage (V)"]}&unit=V')
+                                req_P=requests.post(url=f'{CONFIG.SYNCH_URL}/sendMeasurement?externalId={self.external_ID}&fragment=PowerMeasurement&value={row["Power (W)"]}&unit=W' )
+
+                                print(f'[X-W-sm] ("{req_A.status_code}, {req_V.status_code}, {req_P.status_code}, {req_pred.status_code}, {self.external_ID}, {features}, {row["Class_3"]})')
+                                time.sleep(2)
+                    except requests.exceptions.HTTPError as errh:
+                        print ("[X-W-sm] Http Error:",errh)
+                    except requests.exceptions.ConnectionError as errc:
+                        print ("[X-W-sm] Error Connecting:",errc)
+                    except requests.exceptions.Timeout as errt:
+                        print ("[X-W-sm] Timeout Error:",errt)
+                    except requests.exceptions.RequestException as err:
+                        print ("[X-W-sm] OOps: Something Else",err) 
+                    except OSError:
+                        print ("[X-W-sm] Could not open/read file:", CONFIG.FILE_NAME)
+
+            send_loop_thread= threading.Thread(target=send_)
+            send_loop_thread.daemon = True
+            send_loop_thread.start()
+            return jsonify({"Response":200})
+
         @app.route('/simulate_measurements', methods=['POST'])
         def simulate_measurements():
             
             def send_():
                 counter=1
                 while(True):
+                    #PR values must be added
                     records= EnergyMeasurements.query.filter_by(WorkCellID=self.ID).all()
                     for measurement in records:
-                        # sending measurements to ZDMP-DAQ
-                        requests.post(f'{self.url_self}/measurements',json={"active_power_c":measurement.Power})
-                        #time.sleep(0.2)
-                        req_A=requests.post(url=f'{CONFIG.SYNCH_URL}/sendMeasurement?externalId={self.external_ID}&fragment=CurrentMeasurement&value={measurement.RmsCurrent}&unit=A')
-                        # #time.sleep(0.2)
-                        req_V=requests.post(url=f'{CONFIG.SYNCH_URL}/sendMeasurement?externalId={self.external_ID}&fragment=VoltageMeasurement&value={measurement.RmsVoltage}&unit=V')
-                        # #time.sleep(0.2)
-                        req_P=requests.post(url=f'{CONFIG.SYNCH_URL}/sendMeasurement?externalId={self.external_ID}&fragment=PowerMeasurement&value={measurement.Power}&unit=W' )
-                        print(f'[X-W] ("{self.external_ID}", "{req_V.status_code}", "{req_A.status_code}", "{req_P.status_code}" "{counter}")')
-                        time.sleep(1)
+                        #for real-time HighCharts
+                        try:
+                            self.update_PVC(measurement.Power,measurement.RmsVoltage,measurement.RmsCurrent)
+                            # sending measurements to ZDMP-DAQ
+                            req_A=requests.post(url=f'{CONFIG.SYNCH_URL}/sendMeasurement?externalId={self.external_ID}&fragment=CurrentMeasurement&value={measurement.RmsCurrent}&unit=A',timeout=3)
+                            # #time.sleep(0.2)
+                            req_V=requests.post(url=f'{CONFIG.SYNCH_URL}/sendMeasurement?externalId={self.external_ID}&fragment=VoltageMeasurement&value={measurement.RmsVoltage}&unit=V',timeout=3)
+                            # #time.sleep(0.2)
+                            req_P=requests.post(url=f'{CONFIG.SYNCH_URL}/sendMeasurement?externalId={self.external_ID}&fragment=PowerMeasurement&value={measurement.Power}&unit=W',timeout=3 )
+                            print(f'[X-W-sm] ("{self.external_ID}", "{req_V.status_code}", "{req_A.status_code}", "{req_P.status_code}" "{counter}")')
+                            time.sleep(1)
+                        except requests.exceptions.HTTPError as errh:
+                            print ("[X-W-sm] Http Error:",errh)
+                        except requests.exceptions.ConnectionError as errc:
+                            print ("[X-W-sm] Error Connecting:",errc)
+                        except requests.exceptions.Timeout as errt:
+                            print ("[X-W-sm] Timeout Error:",errt)
+                        except requests.exceptions.RequestException as err:
+                            print ("[X-W-sm] OOps: Something Else",err) 
                     counter = counter+1
             send_loop_thread= threading.Thread(target=send_)
             send_loop_thread.daemon = True
