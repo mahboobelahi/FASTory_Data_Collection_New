@@ -1,5 +1,5 @@
 #related to middleware app only
-
+import joblib
 #globals for application
 appLocIP = '0.0.0.0'#'192.168.100.100'
 appLocPort = 2000#change it back to 2000
@@ -8,7 +8,10 @@ wrkCellLocIP = '192.168.100.100'
 wrkCellLocPort = 2000
 hav_no_EM = [1,7,8] #  workcells that have no/out of order EM modules
 energy_meters=[2,3,4,5,6,9,10,11,12]
-FILE_NAME = 's_Measurements10.csv'
+FILE_NAME = 'testData_349.csv'#'s_Measurements10.csv'
+# loading MinMaxScaler Objects
+Load_scaler = joblib.load('pallet-scaler.save')
+Power_scaler = joblib.load('Power-scaler.save')
 
 #DAQ URLs
 ADMIN_URL = f'http://192.168.100.100:30025'
@@ -31,8 +34,9 @@ MQTT_PASSWORD = 'ZDMP-tau2020!' # set the password here if the broker demands au
 MQTT_KEEPALIVE = Conn_ALIVE  # set the time interval for sending a ping to the broker to 5 seconds
 MQTT_TLS_ENABLED_VPN = False
 MQTT_TLS_ENABLED = True  # set TLS to disabled for testing purposes
-MQTT_TLS_CERTFILE = './files/ca_certificate.pem'#'files/ca_certificate.pem'
+MQTT_TLS_CERTFILE = './files/ca_certificate.pem' 
 MQTT_REFRESH_TIME = 1.0  # refresh time in seconds
+
 # ZDMP-Cumulocity IoT tenant credentials
 #No more required in updated version of DAQ 
 # domain = "https://zdmp-da.eu-latest.cumulocity.com"
