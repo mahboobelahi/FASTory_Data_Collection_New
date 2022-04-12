@@ -629,40 +629,32 @@ class Workstation:
                         payload = {"externalId": self.external_ID,
                                 "fragment": f'belt-tension-class-pred'
                                 }
-                        records = EnergyMeasurements.query.filter_by(WorkCellID=self.ID).order_by(func.random()).limit(5).all()
-                        with open(CONFIG.FILE_NAME, 'r') as file:  # with open('N_Measurements9.csv', 'r') as file:
-                            reader = csv.DictReader(file)
-                            # sending measurements to ZDMP-DAQ
-                            #.order_by(func.random()).limit(5)
-                            for row in reader:
-                                if self.get_stop_simulation() == True:
-                                    print("in predection-FOR")
-                                    break
-                                Power = row["Power(W)"]
-                                load = row["LoadCombination"]
-                                features = np.round(np.array(np.append(CONFIG.Power_scaler.transform([[Power]]),
-                                                                    CONFIG.Load_scaler.transform([[load]])),
-                                                            ndmin=2), 4)
+                        records = EnergyMeasurements.query.filter_by(WorkCellID=self.ID).order_by(func.random()).limit(10).all()
+                        for record in records:
+                            Power = record.Power
+                            load = record.LoadCombination
+                            features = np.round(np.array(np.append(CONFIG.Power_scaler.transform([[Power]]),
+                                                                CONFIG.Load_scaler.transform([[load]])),
+                                                        ndmin=2), 4)
 
-                                
-                                
-                                req_pred = requests.post(url=f'{CONFIG.SYNCH_URL}/sendCustomMeasurement',
-                                                        params=payload, headers=self.headers,
-                                                        json={"powerConsumption": round(features[0][0], 3),
-                                                            "load": round(features[0][1], 3)})
+                            
+                            
+                            req_pred = requests.post(url=f'{CONFIG.SYNCH_URL}/sendCustomMeasurement',
+                                                    params=payload, headers=self.headers,
+                                                    json={"powerConsumption": round(features[0][0], 3),
+                                                        "load": round(features[0][1], 3)})
 
-                                #print(f'[X-SP] ("{self.count_inc()}, {self.external_ID}, {req_pred.status_code},{features}, {row["Class_3"]}, {[Power, load]})')# {req_A.status_code}, {req_V.status_code}, {req_P.status_code}, {req_pred.status_code},
-                                time.sleep(1)
-                                helper.predict(features[0][0],features[0][1])
-                        self.set_count()
-                        #send_()
-
+                            #print(f'[X-SP] ("{self.count_inc()}, {self.external_ID}, {req_pred.status_code},{features}, {row["Class_3"]}, {[Power, load]})')# {req_A.status_code}, {req_V.status_code}, {req_P.status_code}, {req_pred.status_code},
+                            time.sleep(1)
+                            pred = helper.predict(features[0][0],features[0][1])
+                            print(f"({pred},{record.BeltTension},{record.Load},{record.TrueClass},{req_pred},)")
+                            print(f"{features}, {record.NormalizedPower},{record.NormalizedLoad},{record.PredictedClass}")
+                        break
                     except requests.exceptions.RequestException as err:
                         print("[X-SP] OOps: Something Else", err)
                     except OSError:
                         print("[X-SP] Could not open/read file:", CONFIG.FILE_NAME)
                 print("[X-SP] Return from FUNC")
-                return 
 
             send_loop_thread = threading.Thread(target=send_)
             send_loop_thread.daemon = True
