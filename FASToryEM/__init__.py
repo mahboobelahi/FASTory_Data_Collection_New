@@ -1,8 +1,9 @@
-
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 import FASToryEM.configurations as CONFIG
 
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 app = Flask(__name__) #"FASTory-EM-Data-Collection"
 
