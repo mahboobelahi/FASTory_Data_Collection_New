@@ -8,15 +8,18 @@ wrkCellLocIP = '192.168.100.100'
 wrkCellLocPort = 2000
 hav_no_EM = [1,7,8] #  workcells that have no/out of order EM modules
 energy_meters=[2,3,4,5,6,9,10,11,12]
-FILE_NAME = 'testData_349.csv'#'s_Measurements10.csv'
+FILE_NAME = 'testData_349.csv'#forWorksation10_PR.csv#testData_349.csv'#'s_Measurements10.csv'
+make = ["Yaskawa","Sony","Kuka","ABB","Omron-Adept","Sony","N/A","Omron-Adept","Sony","Sony","Sony","Sony"]
+type = ["Dual-Arm","SCARA","6-axis","6-axis","6-axis","SCARA","N/A","SCARA-eCobra","SCARA","SCARA","SCARA","SCARA"]
 # loading MinMaxScaler Objects
-Load_scaler = joblib.load('pallet-scaler.save')
-Power_scaler = joblib.load('Power-scaler.save')
-
+Load_scaler = joblib.load('pallet-scaler.save')#loadScalerjb.save pallet-scaler.save
+Power_scaler = joblib.load('Power-scaler.save')#powerScalerjb.save Power-scaler.save
+num_Fast=2
+num=0
 #DAQ URLs
-ADMIN_URL = f'http://192.168.100.100:30025'
-ASYNCH_URL =  f'http://192.168.100.100:30026'
-SYNCH_URL = f'http://192.168.100.100:30027'
+ADMIN_URL = f'http://apigw-zdmp.platform.zdmp.eu/gateway/data-acquisition-admin-service/v0'#f'http://192.168.100.100:30025'
+ASYNCH_URL = f'http://apigw-zdmp.platform.zdmp.eu/gateway/data-acquisition-asynch-service/v0' #f'http://192.168.100.100:30026'
+SYNCH_URL =  f'http://apigw-zdmp.platform.zdmp.eu/gateway/data-acquisition-synch-service/v0' #f'http://192.168.100.100:30027'
 TOPIC_TYPE= 'multi'
 
 ##############################MQTT-Settings###########################################
