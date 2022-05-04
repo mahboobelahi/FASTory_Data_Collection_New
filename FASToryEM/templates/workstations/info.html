@@ -10,6 +10,14 @@
                 <td> {{ info.id }} </td>
             </tr>
             <tr>
+                <th> Make </th>
+                <td> {{ info.RobotMake }} </td>
+            </tr>
+            <tr>
+                <th> Type </th>
+                <td> {{ info.RobotType }} </td>
+            </tr>
+            <tr>
                 <th> Name At ZDMP-DAQ Component </th>
                 <td> {{ info.WorkCellName }} </td>
             </tr>
@@ -55,6 +63,10 @@
                 {% endif %}
      
         </table>
+        <div style='float:right'>
+            
+            <img src="{{ url_for('static', filename='images/WS'+info.id|string+'.jpg') }}" style="margin-left:15%;margin-top:5%"/>
+        </div>
 {% endblock %}
 <!-- <table class="table  table-hover  table-bordered  text-nowrap">
         <th> ID </th> 

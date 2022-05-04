@@ -11,7 +11,14 @@
                 </form>
             </div>
     {% else %}
-        <h1>Has no S1000-E10 Energy Module.</h1>
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <h4>Workstation has no S1000-E10 Energy Module installation.</h4>
+        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <a class="Light link list-group-item list-group-item-action" href="{{url_for('services')}}">Go back!</a>
+        
     {% endif %}
 
 
