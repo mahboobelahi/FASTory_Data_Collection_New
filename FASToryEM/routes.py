@@ -14,16 +14,18 @@ mqtt = Mqtt(app)
 @mqtt.on_connect()
 def handle_connect(client, userdata, flags, rc):
     if rc==0:
+        pass
         result=WorkstationInfo.query.all()
         print("[X-Routes] connected, OK Returned code=",rc)
-        #subscribe to tpoics
+        # #subscribe to tpoics
         time.sleep(1)
         mqtt.unsubscribe_all()
-        #mqtt.unsubscribe(BASE_TOPIC)
-        time.sleep(5)
+        # #mqtt.unsubscribe(BASE_TOPIC)
+        # time.sleep(1)
         for  res in result:
             if res.id==10:
                 mqtt.subscribe(f'T5_1-Data-Acquisition/Datasource ID: {res.DAQ_ExternalID} - MultiTopic/Measurements/cmd')
+                print(f'[X-Routes] Subscribing to Topic: T5_1-Data-Acquisition/Datasource ID: {res.DAQ_ExternalID} - MultiTopic/Measurements/cmd')
                 print(f'[X-Routes] {res.id}')    
     else:
         print("[X-Routes] Bad connection Returned code=",rc)
@@ -66,24 +68,31 @@ def handle_mqtt_message(client, userdata, message):
         if payload.get("E10_Services") !=None and exID not in hav_no_EM:
 
             cmd = payload.get("E10_Services")
-            res=threading.Thread(target=helper.invoke_EM_service,
-                                        args=(E10_url,cmd),
-                                        daemon=True).start()
-            print('[X-Routes] ',res)
+            # res=threading.Thread(target=helper.invoke_EM_service,
+            #                             args=(E10_url,cmd),
+            #                             daemon=True).start()
+            # print('[X-Routes] ',res)
+            ######For Simulation#########
+            if cmd == 'stop':
+                requests.post(url=f'{result.WorkCellIP}/api/stop_simulations',timeout=60)
+            else:
+                requests.post(url=f'{result.WorkCellIP}/api/start_simulations',timeout=60)
+            #############################
         else:
             print(f'[X-Routes] Invalid Command!')
 
-        if payload.get("CNV").get("cmd") !=None:
-            cnv_cmd = payload.get("CNV").get("cmd")
-            cnv_section = payload.get("CNV").get("CNV_section").lower()
-            if exID in [7,1] and (cnv_section == 'bypass' or cnv_section == 'both'):
-                print(f'[X-Routes] Invalid Command! ')
-            else:
-                
-                res= threading.Thread(target=helper.cnv_cmd,
-                                            args=((cnv_cmd,cnv_section,CNV_url,url_self)),
-                                            daemon=True).start()
-                print('[X-Routes] ',res)
+        if payload.get("CNV")!=None:
+            if payload.get("CNV").get("cmd") !=None:
+                cnv_cmd = payload.get("CNV").get("cmd")
+                cnv_section = payload.get("CNV").get("CNV_section").lower()
+                if exID in [7,1] and (cnv_section == 'bypass' or cnv_section == 'both'):
+                    print(f'[X-Routes] Invalid Command! ')
+                else:
+                    
+                    res= threading.Thread(target=helper.cnv_cmd,
+                                                args=((cnv_cmd,cnv_section,CNV_url,url_self)),
+                                                daemon=True).start()
+                    print('[X-Routes] ',res)
                 
     except ValueError:
         print('[X-Routes] Decoding JSON has failed')
