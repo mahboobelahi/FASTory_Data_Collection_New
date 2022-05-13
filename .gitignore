@@ -1,5 +1,8 @@
 *.png
-.EM-env/
+EM-env/
+.vscode/
+*.pem
+
 *.pyc
 .__pycache__/
 .idea/
