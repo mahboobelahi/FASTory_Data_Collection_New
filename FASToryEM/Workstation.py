@@ -177,11 +177,10 @@ class Workstation:
         }
         try:
             r = requests.post(url=self.EM_service_url, json=body)
-            #r.raise_for_status()
-            #return jsonify({"payload": body, "Status Code": r.status_code, "Reason": r.reason})
+            return f"Status Code: {r.status_code}, Reason: {r.reason}"
         except requests.exceptions.RequestException as err:
             print("[X-W] OOps: Something Else", err)
-        #return jsonify({"Message": "Not Connected to Line"}, {"Response": None})
+            return err
 
     # related to DAQ
     # events/alarms/deviceControl etc
@@ -337,9 +336,10 @@ class Workstation:
 
         # Flask application routes
         @app.route('/class', methods=['POST'])
-        def hom():
+        def labelUpdate():
             
             self.updateClassLabel(request.json.get("cl"),request.json.get("BT"),request.json.get("lc"))
+            
             print(self.classLabel,self.BeltTension,self.LoadCombination)
             
             return "OK:"
@@ -348,7 +348,9 @@ class Workstation:
         def home():
             if request.method == 'GET':
                 context = {"ID": self.ID, "url": self.url_self}
-                return render_template(f'workstations/Workstation.html', title=f'Wrk{self.ID}', content=context)
+                return render_template(f'workstations/Workstation.html', title=f'Wrk{self.ID}',
+                brandUrl=f'http://{helper.get_local_ip()}:2000/',
+                content=context)
             else:
                 self.set_stop_recording()
                 self.set_count()
@@ -359,7 +361,9 @@ class Workstation:
 
             return render_template(f'workstations/info.html',
                                    title='Information',
-                                   info=WorkstationInfo.query.get(self.ID))
+                                   info=WorkstationInfo.query.get(self.ID),
+                                   brandUrl=f'http://{helper.get_local_ip()}:2000/')
+
         ###########Measurements for PR##########
 # EM measurements from FASTory received here and stored to DB
         @app.route('/PR-measurements', methods=['GET', 'POST'])
@@ -551,13 +555,15 @@ class Workstation:
                 voltage_values.append(measurement.RmsVoltage)
                 current_values.append(measurement.RmsCurrent)
             label=[x for x in range(1,MeasurementsForDemo.query.filter_by(WorkCellID=self.ID).count())]
-            
+            print(BT_Class,power_values,voltage_values)
             return render_template(f'workstations/historicData.html',
                                     power = json.dumps(power_values),
                                     voltage = json.dumps(voltage_values),
                                     current = json.dumps(current_values),
                                     BTClass = json.dumps([60,283,157]),
                                     #BTClass = json.dumps(BT_Class),
+                                    id=self.ID,
+                                    brandUrl=f'http://{helper.get_local_ip()}:2000/',
                                     label = json.dumps(label))
         
         # for jQuery
@@ -570,7 +576,8 @@ class Workstation:
         @app.route('/meaurements/real-time', methods=['GET'])
         def realTimePlot():
             from time import time
-            return render_template(f'workstations/live_data.html', title='RT-Plot', ID=self.ID)
+            return render_template(f'workstations/live_data.html', title='RT-Plot',
+            brandUrl=f'http://{helper.get_local_ip()}:2000/',ID=self.ID)
 
         @app.route('/services', methods=['GET'])
         def services():
@@ -591,44 +598,50 @@ class Workstation:
             cmd = request.form["cnv"]  # CNV section
             cnv = request.form["cmd"]  # comand
             self.sendEvent('CNV', f'Received command "{cnv}" for "{cmd}" CNV section(s)')
+            
             if cnv == 'start':
+                
                 payload = {"cmd": cmd, "ReceiverADDR": self.url_self}
                 try:
-                    r = requests.post(f'{self.CNV_start_stop_url}StartUnCondition', json=payload, timeout= self.numFast)
-                    r.raise_for_status()
-
+                    res = requests.post(f'{self.CNV_start_stop_url}StartUnCondition', json=payload, timeout= self.numFast)
+                    res.raise_for_status()
+                    flash(f'Status Code: {res.status_code}, Reason: {res.reason}')
+                    return redirect(url_for('services'))
                     #jsonify({"payload": payload, "Status Code": r.status_code, "Reason": r.reason})
                 except requests.exceptions.RequestException as err:
-                    flash('Test','error')
+                    flash(f'Status: Unsuccessfull, Reason: {err}')
+                    
                     print("[X-W-cC] OOps: Something Else", err)
                     return redirect(url_for('services'))
-                flash("Service Execuated.","info")
-                return redirect(url_for('services'))#return jsonify({"payload": payload, "Message": "Not Connected to Line"}, {"Response": None})
+                #return jsonify({"payload": payload, "Message": "Not Connected to Line"}, {"Response": None})
             else:
                 payload = {"cmd": cmd, "ReceiverADDR": self.url_self}
                 try:
-                    r = requests.post(f'{self.CNV_start_stop_url}StopUnCondition', json=payload,timeout=self.numFast)
-                    r.raise_for_status()
+                    res = requests.post(f'{self.CNV_start_stop_url}StopUnCondition', json=payload,timeout=self.numFast)
+                    res.raise_for_status()
+                    flash(f'Status Code: {res.status_code}, Reason: {res.reason}')
+                    return redirect(url_for('services'))
                     # jsonify(payload, {"Status Code": r.status_code, "Reason": r.reason})
                 except requests.exceptions.RequestException as err:
-                    flash('Test','Danger')
                     print("[X-W-cC] OOps: Something Else", err)
+                    flash(f'Status: Unsuccessfull, Reason: {err}')
                     return redirect(url_for('services'))
-                flash("Service Execuated.")
-                return redirect(url_for('services'))#return jsonify({"payload": payload, "Message": "Not Connected to Line"}, {"Response": None})
+                #return jsonify({"payload": payload, "Message": "Not Connected to Line"}, {"Response": None})
 
         @app.route('/E10_services', methods=['POST'])
         def E10_services():
             cmd = request.form["cmd"]
-
+            
             if cmd == 'start':
                 # return jsonify({"cmd":cmd},{"Message": "Not Connected to Line" },{"Status-Code":403})
                 res = self.invoke_EM_service(cmd)
                 self.sendEvent('S1000-E10', f'Energy Service has {cmd}')
+                flash(str(res))
                 return redirect(url_for('services'))#res
             else:
                 res = self.invoke_EM_service()
                 self.sendEvent('S1000-E10', f'Energy Service has {cmd}')
+                flash(str(res))
                 return redirect(url_for('services'))# res
 
         # simulation routes
