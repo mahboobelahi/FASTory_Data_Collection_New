@@ -7,17 +7,24 @@ body {
   h1, h2, h3, h4, h5, h6 {
     color: #444444;
   }
-  
+  .p{
+    text-align: justify;
+  }
   .bg-steel {
-    background-color: #5f788a;
+    background-color: #8f0004;
   }
   
   .site-header .navbar-nav .nav-link {
-    color: #cbd5db;
+    color: #ffffff;
+    /* 8f0004 */
   }
   
   .site-header .navbar-nav .nav-link:hover {
     color: #ffffff;
+  }
+
+  mybutton:hover {
+    color: #8f0004;
   }
   
   .site-header .navbar-nav .nav-link.active {
@@ -78,4 +85,14 @@ body {
   .account-heading {
     font-size: 2.5rem;
   }
- 
+ /* zohaib */
+
+ .wrapper {
+  background-color: #e1e5f4;
+  min-height: 100%;
+}
+
+.logo {
+  width: 40%;
+}
+

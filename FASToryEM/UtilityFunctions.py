@@ -108,7 +108,7 @@ def cnv_cmd(cmd,section,url,url_self):
 def Workstations():
     
     for id in range(1,len(CONFIG.WorkStations)+1):
-        if id !=10 and id!=2:# and id!=1:
+        if id !=10:# and id!=1:
             continue
         temp_obj = WkS.Workstation(id,CONFIG.wrkCellLocIP,
                                     CONFIG.make[id-1],CONFIG.type[id-1],
