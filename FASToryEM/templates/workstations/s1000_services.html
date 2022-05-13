@@ -12,13 +12,12 @@
             </div>
     {% else %}
     <div class="alert alert-danger alert-dismissible fade show" role="alert">
-        <h4>Workstation has no S1000-E10 Energy Module installation.</h4>
-        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-            <span aria-hidden="true">&times;</span>
-        </button>
+        <strong>Workstation_{{id}} has no S1000-E10 module.</strong>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
       </div>
-      <a class="Light link list-group-item list-group-item-action" href="{{url_for('services')}}">Go back!</a>
-        
+      <div class="col-3">
+        <a  class="btn btn-outline-primary btn-lg " href="{{url_for('info')}}">Need Work Cell Infomation!</a>
+      </div> 
     {% endif %}
 
 
