@@ -9,93 +9,94 @@ from  flask_mqtt import Mqtt
 
 
 
-mqtt = Mqtt(app)
-#####MQTT Endpoints################
-@mqtt.on_connect()
-def handle_connect(client, userdata, flags, rc):
-    if rc==0:
-        pass
-        result=WorkstationInfo.query.all()
-        print("[X-Routes] connected, OK Returned code=",rc)
-        # #subscribe to tpoics
-        time.sleep(1)
-        mqtt.unsubscribe_all()
-        # #mqtt.unsubscribe(BASE_TOPIC)
-        # time.sleep(1)
-        for  res in result:
-            if res.id==10:
-                mqtt.subscribe(f'T5_1-Data-Acquisition/Datasource ID: {res.DAQ_ExternalID} - MultiTopic/Measurements/cmd')
-                print(f'[X-Routes] Subscribing to Topic: T5_1-Data-Acquisition/Datasource ID: {res.DAQ_ExternalID} - MultiTopic/Measurements/cmd')
-                print(f'[X-Routes] {res.id}')    
-    else:
-        print("[X-Routes] Bad connection Returned code=",rc)
+# mqtt = Mqtt(app)
+# #####MQTT Endpoints################
+# @mqtt.on_connect()
+# def handle_connect(client, userdata, flags, rc):
+#     if rc==0:
+#         pass
+#         result=WorkstationInfo.query.all()
+#         print("[X-Routes] connected, OK Returned code=",rc)
+#         # #subscribe to tpoics
+#         time.sleep(1)
+#         mqtt.unsubscribe_all()
+#         # #mqtt.unsubscribe(BASE_TOPIC)
+#         # time.sleep(1)
+#         for  res in result:
+#             if res.id==10:
+#                 mqtt.subscribe(f'T5_1-Data-Acquisition/DataSource ID: {res.DAQ_ExternalID} - MultiTopic/Measurements/cmd')
+#                 print(f'[X-Routes] Subscribing to Topic: T5_1-Data-Acquisition/DataSource ID: {res.DAQ_ExternalID} - MultiTopic/Measurements/cmd')
+#                 print(f'[X-Routes] {res.id}')    
+#     else:
+#         print("[X-Routes] Bad connection Returned code=",rc)
 
-@mqtt.on_subscribe()
-def handle_subscribe(client, userdata, mid, granted_qos):
-    print('[X-Routes] Subscription id {} granted with qos {}.'
-          .format(mid, granted_qos))   
+# @mqtt.on_subscribe()
+# def handle_subscribe(client, userdata, mid, granted_qos):
+#     print('[X-Routes] Subscription id {} granted with qos {}.'
+#           .format(mid, granted_qos))   
 
-# @mqtt.unsubscribe()
-# def handle_unsubscribe(client, userdata, mid):
-#     print('Unsubscribed from topic (id: {})'.format(mid))
+# # @mqtt.unsubscribe()
+# # def handle_unsubscribe(client, userdata, mid):
+# #     print('Unsubscribed from topic (id: {})'.format(mid))
 
-@mqtt.on_disconnect()
-def handle_disconnect():
-    mqtt.unsubscribe_all()
-    # mqtt.unsubscribe(BASE_TOPIC)
-    mqtt.unsubscribe_all()
-    print("[X-Routes] CLIENT DISCONNECTED")
+# @mqtt.on_disconnect()
+# def handle_disconnect():
+#     mqtt.unsubscribe_all()
+#     # mqtt.unsubscribe(BASE_TOPIC)
+#     mqtt.unsubscribe_all()
+#     print("[X-Routes] CLIENT DISCONNECTED")
 
-#handles commands from MQTT 
-##command structure#####
-# {
-#     "external_ID":"104EM",
-#     "E10_Services": "start",
-#     "CNV":{"cmd":"start","CNV_section":"both"}
-# }
-@mqtt.on_message()
-def handle_mqtt_message(client, userdata, message):
-    try:
-        payload=json.loads(message.payload)
-        print(f"{type(payload)},'??',{payload}")
-        #db will handles
-        exID = int(payload.get("external_ID").split('4')[0])
-        result = WorkstationInfo.query.get(exID)
-        E10_url=result.EM_service_url
-        CNV_url = result.CNV_service_url
-        url_self = result.WorkCellIP
+# #handles commands from MQTT 
+# ##command structure#####
+# # {
+# #     "external_ID":"104EM",
+# #     "E10_Services": "start",
+# #     "CNV":{"cmd":"start","CNV_section":"both"}
+# # }
+# @mqtt.on_message()
+# def handle_mqtt_message(client, userdata, message):
+#     try:
+#         payload=json.loads(message.payload).get('data')
+#         print(f"[X-Routes] {type(payload)},'??',{payload}")
+#         #print(f"[X-Routes] {type(payload)},'??',{payload.get('data')}")
+#         #db will handles
+#         exID = int(payload.get("external_ID").split('4')[0])
+#         result = WorkstationInfo.query.get(exID)
+#         E10_url=result.EM_service_url
+#         CNV_url = result.CNV_service_url
+#         url_self = result.WorkCellIP
 
-        if payload.get("E10_Services") !=None and exID not in hav_no_EM:
+#         if payload.get("E10_Services") !=None and exID not in hav_no_EM:
 
-            cmd = payload.get("E10_Services")
-            # res=threading.Thread(target=helper.invoke_EM_service,
-            #                             args=(E10_url,cmd),
-            #                             daemon=True).start()
-            # print('[X-Routes] ',res)
-            ######For Simulation#########
-            if cmd == 'stop':
-                requests.post(url=f'{result.WorkCellIP}/api/stop_simulations',timeout=60)
-            else:
-                requests.post(url=f'{result.WorkCellIP}/api/start_simulations',timeout=60)
-            #############################
-        else:
-            print(f'[X-Routes] Invalid Command!')
+#             cmd = payload.get("E10_Services")
+#             # res=threading.Thread(target=helper.invoke_EM_service,
+#             #                             args=(E10_url,cmd),
+#             #                             daemon=True).start()
+#             # print('[X-Routes] ',res)
+#             ######For Simulation#########
+#             # if cmd == 'stop':
+#             #     requests.post(url=f'{result.WorkCellIP}/api/stop_simulations',timeout=60)
+#             # else:
+#             #     requests.post(url=f'{result.WorkCellIP}/api/start_simulations',timeout=60)
+#             #############################
+#         else:
+#             print(f'[X-Routes] Invalid Command!')
 
-        if payload.get("CNV")!=None:
-            if payload.get("CNV").get("cmd") !=None:
-                cnv_cmd = payload.get("CNV").get("cmd")
-                cnv_section = payload.get("CNV").get("CNV_section").lower()
-                if exID in [7,1] and (cnv_section == 'bypass' or cnv_section == 'both'):
-                    print(f'[X-Routes] Invalid Command! ')
-                else:
+#         if payload.get("CNV")!=None:
+#             if payload.get("CNV").get("cmd") !=None:
+#                 cnv_cmd = payload.get("CNV").get("cmd")
+#                 cnv_section = payload.get("CNV").get("CNV_section").lower()
+#                 if exID in [7,1] and (cnv_section == 'bypass' or cnv_section == 'both'):
+#                     print(f'[X-Routes] Invalid Command! ')
+#                 else:
                     
-                    res= threading.Thread(target=helper.cnv_cmd,
-                                                args=((cnv_cmd,cnv_section,CNV_url,url_self)),
-                                                daemon=True).start()
-                    print('[X-Routes] ',res)
+#                     res= threading.Thread(target=helper.cnv_cmd,
+#                                                 args=((cnv_cmd,cnv_section,CNV_url,url_self)),
+#                                                 daemon=True).start()
+#                     print('[X-Routes] ',res)
                 
-    except ValueError:
-        print('[X-Routes] Decoding JSON has failed')
+#     except ValueError:
+#         print('[X-Routes] Decoding JSON has failed')
 
 ########Flask Application Endpoints################
 
