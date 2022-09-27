@@ -53,11 +53,13 @@
             <a  class="btn btn-outline-primary btn-lg " href="{{url_for('info')}}">Need Work Cell Infomation!</a>
           </div>
       {% else %}
-      
-        <h1> Yet no measurements recorded for Workstation_{{contxt.id}}</h1>
+          <div class="row">
+          <div class="alert alert-danger alert-dismissible fade show" role="alert">
+              <strong>Yet no measurements recorded for Workstation_{{contxt.id}}.</strong>
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+          </div>
       {% endif %}
-      
-
     {% endif %}
     
 {% endblock %}

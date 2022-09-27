@@ -220,11 +220,19 @@
 
       {% endblock %}
   {% else %}
-    
-  <div class="alert alert-danger alert-dismissible fade show" role="alert">
-    <strong>Workstation_{{id}} has no S1000-E10 module.</strong>
-    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-  </div>
+        <br>
+        {% if id in [1,7,8] %}
+          <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <strong>Workstation_{{id}} has no S1000-E10 module.</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        {% else %}
+        <br>
+          <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <strong>Yet no measurements recorded for Workstation_{{id}}.</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        {% endif %}
   <div class="col-3">
     <a  class="btn btn-outline-primary btn-lg " href="{{url_for('info')}}">Need Work Cell Infomation!</a>
   </div>

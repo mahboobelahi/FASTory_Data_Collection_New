@@ -330,7 +330,7 @@ class Workstation:
         # ,
         app = Flask(__name__)  # template_folder='./workstations'
         app.secret_key = b'_5#y2L"F4Q8z\n\xec]/'
-        app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:mahboobelahi93@localhost/fastoryemdb'
+        app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{CONFIG.DB_USER}:{CONFIG.DB_PASSWORD}@{CONFIG.DB_SERVER}/{CONFIG.DB_NAME}'
         app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
         db = SQLAlchemy(app)
 
@@ -358,7 +358,7 @@ class Workstation:
 
         @app.route('/info')  # ,methods=['GET']
         def info():
-
+            info=WorkstationInfo.query.get(self.ID)
             return render_template(f'workstations/info.html',
                                    title='Information',
                                    info=WorkstationInfo.query.get(self.ID),

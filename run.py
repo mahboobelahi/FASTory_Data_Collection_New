@@ -21,7 +21,7 @@ if __name__ == '__main__':
     start_workstations=threading.Thread(target=helper.Workstations)
     start_workstations.daemon=True
     start_workstations.start()
-    #helper.createModels()
+    helper.createModels()
     #time.sleep(5)
     #helper.get_local_ip()
     app.run(host=helper.get_local_ip(), port=CONFIG.appLocPort,use_reloader=False,debug=True)#,use_reloader=False,debug=True helper.get_local_ip()

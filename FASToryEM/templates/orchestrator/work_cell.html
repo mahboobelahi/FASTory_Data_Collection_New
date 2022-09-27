@@ -4,7 +4,7 @@
     <h1>FASTory Line's Workstations:</h1>          
     {% for workstation in content %}
     <div class="col-3" >   
-        <div class="card" style="width: 18rem;">
+        <div class="card" style="width: 15rem; ">
             {% if workstation.WorkCellID==7 %}
             <img src="{{ url_for('static', filename='images/FASTory.png') }}" 
             class=" img-thumbnail mx-auto d-block"

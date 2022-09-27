@@ -1,5 +1,10 @@
 #related to middleware app only
 import joblib
+#DB#####
+DB_USER="FASToryPowerConsumption"
+DB_PASSWORD = "FASToryPR2021!"
+DB_SERVER = "localhost"
+DB_NAME = "PowerConsumption"
 #globals for application
 appLocIP = '0.0.0.0'#'192.168.100.100'
 appLocPort = 2000#change it back to 2000

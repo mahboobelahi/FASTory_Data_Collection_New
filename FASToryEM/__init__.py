@@ -24,7 +24,8 @@ app.config['MQTT_TLS_ENABLED'] = CONFIG.MQTT_TLS_ENABLED # set TLS to disabled f
 #app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///FASToryEMDB.db'
 #New MySQL DB
 #'mysql://username:passward@localhost/<databasename>'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:mahboobelahi93@localhost/fastoryemdb'
+print(f'mysql+pymysql://{CONFIG.DB_USER}:{CONFIG.DB_PASSWORD}@{CONFIG.DB_SERVER}/{CONFIG.DB_NAME}')
+app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{CONFIG.DB_USER}:{CONFIG.DB_PASSWORD}@{CONFIG.DB_SERVER}/{CONFIG.DB_NAME}'
 app.config['SECRET_KEY'] = "random string"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)

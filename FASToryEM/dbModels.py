@@ -1,5 +1,4 @@
 from datetime import datetime
-from tkinter import W
 from FASToryEM import db
 
 class WorkstationInfo(db.Model):
@@ -7,9 +6,9 @@ class WorkstationInfo(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     WorkCellName = db.Column(db.String(255), unique=True, nullable=False)
     WorkCellID = db.Column(db.Integer, unique=True, default=0,nullable=False)
-    RobotMake = db.Column(db.String(10),nullable=False)
-    RobotType = db.Column(db.String(10),nullable=False)
-    DAQ_ExternalID = db.Column(db.String(10),nullable=False,unique=True)
+    RobotMake = db.Column(db.String(30),nullable=False)
+    RobotType = db.Column(db.String(30),nullable=False)
+    DAQ_ExternalID = db.Column(db.String(20),nullable=False,unique=True)
     DAQ_SourceID = db.Column(db.Integer)
     HasZone4 = db.Column(db.Boolean)
     HasEM_Module = db.Column(db.Boolean)

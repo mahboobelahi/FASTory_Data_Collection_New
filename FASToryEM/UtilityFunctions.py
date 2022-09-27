@@ -108,8 +108,8 @@ def cnv_cmd(cmd,section,url,url_self):
 def Workstations():
     
     for id in range(1,len(CONFIG.WorkStations)+1):
-        if id !=10 :# and id!=1:
-            continue
+        # if id !=10 :# and id!=1:
+        #     continue
         temp_obj = WkS.Workstation(id,CONFIG.wrkCellLocIP,
                                     CONFIG.make[id-1],CONFIG.type[id-1],
                                     CONFIG.wrkCellLocPort+id,
@@ -131,7 +131,7 @@ def Workstations():
         #temp_obj.register_device()
 
         #subscribe device for ASYNC data access
-        temp_obj.sub_or_Unsubscribe_DataSource(True)
+        #temp_obj.sub_or_Unsubscribe_DataSource(True)
 
         #Db functions
         #if you delete DB Schema then call this method. After that comment it.
