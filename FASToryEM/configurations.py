@@ -19,8 +19,8 @@ type = ["Dual-Arm","SCARA","6-axis","6-axis","6-axis","SCARA","N/A","SCARA-eCobr
 # loading MinMaxScaler Objects
 Load_scaler = joblib.load('pallet-scaler.save')#loadScalerjb.save pallet-scaler.save
 Power_scaler = joblib.load('Power-scaler.save')#powerScalerjb.save Power-scaler.save
-num_Fast=2
-num=0
+num_Fast=60
+num=60
 #DAQ URLs
 ADMIN_URL = f'http://apigw-zdmp.platform.zdmp.eu/gateway/data-acquisition-admin-service/v0'#f'http://192.168.100.100:30025'
 ASYNCH_URL = f'http://apigw-zdmp.platform.zdmp.eu/gateway/data-acquisition-asynch-service/v0' #f'http://192.168.100.100:30026'

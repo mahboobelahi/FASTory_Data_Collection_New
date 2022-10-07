@@ -51,27 +51,26 @@ def createModels():
     db.create_all()
 
 #Workcell Instructions from MsgBus
-def invoke_EM_service(url,cmd='stop'):
-    body = {
-        "cmd": cmd,
-        "send_measurement_ADDR": '',
-        "ReceiverADDR":''
-    }
-    try:
-        r = requests.post(url=url, json=body)#,timeout=3
-        r.raise_for_status()
-        return {"Status Code":r.status_code,"Reason":r.reason}
-    except requests.exceptions.HTTPError as errh:
-        print ("[X-UTF] Http Error:",errh)
-    except requests.exceptions.ConnectionError as errc:
-        print ("[X-UTF] Error Connecting:",errc)
-    except requests.exceptions.Timeout as errt:
-        print ("[X-UTF] Timeout Error:",errt)
-    except requests.exceptions.RequestException as err:
-        print ("[X-UTF] OOps: Something Else",err)   
-    return None  
+# def invoke_EM_service(url,cmd='stop'):
+#     body = {
+#         "cmd": cmd,
+#         "send_measurement_ADDR": '',
+#         "ReceiverADDR":''
+#     }
+#     try:
+#         r = requests.post(url=url, json=body)#,timeout=3
+#         r.raise_for_status()
+#         return {"Status Code":r.status_code,"Reason":r.reason}
+#     except requests.exceptions.HTTPError as errh:
+#         print ("[X-UTF] Http Error:",errh)
+#     except requests.exceptions.ConnectionError as errc:
+#         print ("[X-UTF] Error Connecting:",errc)
+#     except requests.exceptions.Timeout as errt:
+#         print ("[X-UTF] Timeout Error:",errt)
+#     except requests.exceptions.RequestException as err:
+#         print ("[X-UTF] OOps: Something Else",err)   
+#     return None  
         
-
 def cnv_cmd(cmd,section,url,url_self):
     if cmd =='start':
         payload={"cmd":section, "ReceiverADDR":url_self}
@@ -108,30 +107,35 @@ def cnv_cmd(cmd,section,url,url_self):
 def Workstations():
     
     for id in range(1,len(CONFIG.WorkStations)+1):
-        # if id !=10 :# and id!=1:
-        #     continue
+        if id !=10 :# and id!=1:
+            continue
         temp_obj = WkS.Workstation(id,CONFIG.wrkCellLocIP,
                                     CONFIG.make[id-1],CONFIG.type[id-1],
                                     CONFIG.wrkCellLocPort+id,
                                     CONFIG.num_Fast,CONFIG.num)
         #temp_obj.WkSINFO()
         #deleting past subscription to EM service.
-        #temp_obj.invoke_EM_service()
-        #now invoke EM service for accurate results
+        temp_obj.invoke_EM_service()
+
         temp_obj.get_access_token()
-        # send_measurements=threading.Timer(8,temp_obj.invoke_EM_service,args=("start",))
+        #startring server for workstation
+        start_wrkStation_server=threading.Timer(1,temp_obj.runApp)
+        start_wrkStation_server.daemon=True
+        start_wrkStation_server.start()
+        #now invoke EM service for accurate results  
+        # send_measurements=threading.Timer(4,temp_obj.invoke_EM_service,args=(True,))
         # send_measurements.daemon=True
         # send_measurements.start()
-        #startring server for workstation
-        threading.Thread(target=temp_obj.runApp,daemon=True).start()
+
+        #threading.Thread(target=temp_obj.runApp,daemon=True).start()
         
         #wait a while for server initialization
         #time.sleep(1)
         #check device registration or register device to ZDMP-DAQ component 
-        #temp_obj.register_device()
+        temp_obj.register_device()
 
         #subscribe device for ASYNC data access
-        #temp_obj.sub_or_Unsubscribe_DataSource(True)
+        temp_obj.sub_or_Unsubscribe_DataSource(True)
 
         #Db functions
         #if you delete DB Schema then call this method. After that comment it.
