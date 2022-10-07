@@ -15,18 +15,18 @@ mqtt = Mqtt(app)
 def handle_connect(client, userdata, flags, rc):
     if rc==0:
         pass
-        # result=WorkstationInfo.query.all()
-        # print("[X-Routes] connected, OK Returned code=",rc)
-        # # #subscribe to tpoics
+        result=WorkstationInfo.query.all()
+        print("[X-Routes] connected, OK Returned code=",rc)
+        # #subscribe to tpoics
+        time.sleep(1)
+        mqtt.unsubscribe_all()
+        # #mqtt.unsubscribe(BASE_TOPIC)
         # time.sleep(1)
-        # mqtt.unsubscribe_all()
-        # # #mqtt.unsubscribe(BASE_TOPIC)
-        # # time.sleep(1)
-        # for  res in result:
-        #     if res.id==10:
-        #         mqtt.subscribe(f'T5_1-Data-Acquisition/DataSource ID: {res.DAQ_ExternalID} - MultiTopic/Measurements/cmd')
-        #         print(f'[X-Routes] Subscribing to Topic: T5_1-Data-Acquisition/DataSource ID: {res.DAQ_ExternalID} - MultiTopic/Measurements/cmd')
-        #         print(f'[X-Routes] {res.id}')    
+        for  res in result:
+            if res.id==10:
+                mqtt.subscribe(f'T5_1-Data-Acquisition/DataSource ID: {res.DAQ_ExternalID} - MultiTopic/Measurements/cmd')
+                print(f'[X-Routes] Subscribing to Topic: T5_1-Data-Acquisition/DataSource ID: {res.DAQ_ExternalID} - MultiTopic/Measurements/cmd')
+                print(f'[X-Routes] {res.id}')    
     else:
         print("[X-Routes] Bad connection Returned code=",rc)
 
@@ -56,23 +56,30 @@ def handle_disconnect():
 @mqtt.on_message()
 def handle_mqtt_message(client, userdata, message):
     try:
-        payload=json.loads(message.payload).get('data')
+        payload=json.loads(message.payload)#.get('data')
         print(f"[X-Routes] {type(payload)},'??',{payload}")
         #print(f"[X-Routes] {type(payload)},'??',{payload.get('data')}")
         #db will handles
+
+        if not payload :
+            return
         exID = int(payload.get("external_ID").split('4')[0])
         result = WorkstationInfo.query.get(exID)
-        E10_url=result.EM_service_url
+        #E10_url=result.EM_service_url
         CNV_url = result.CNV_service_url
         url_self = result.WorkCellIP
 
         if payload.get("E10_Services") !=None and exID not in hav_no_EM:
 
             cmd = payload.get("E10_Services")
-            # res=threading.Thread(target=helper.invoke_EM_service,
-            #                             args=(E10_url,cmd),
-            #                             daemon=True).start()
-            # print('[X-Routes] ',res)
+            payload={"cmd":cmd}
+            try:
+                print(f'{url_self}/api/energyService')
+                r = requests.post(f'{url_self}/api/energyService',params=payload)
+                print(f'[X] From zRefApp invoking E10 Module services--{r.status_code}, {r.reason}')
+            except requests.exceptions.RequestException as err:
+                print ("[X-UTF] OOps: Something Else",err)
+
             ######For Simulation#########
             # if cmd == 'stop':
             #     requests.post(url=f'{result.WorkCellIP}/api/stop_simulations',timeout=60)
@@ -88,8 +95,7 @@ def handle_mqtt_message(client, userdata, message):
                 cnv_section = payload.get("CNV").get("CNV_section").lower()
                 if exID in [7,1] and (cnv_section == 'bypass' or cnv_section == 'both'):
                     print(f'[X-Routes] Invalid Command! ')
-                else:
-                    
+                else:                   
                     res= threading.Thread(target=helper.cnv_cmd,
                                                 args=((cnv_cmd,cnv_section,CNV_url,url_self)),
                                                 daemon=True).start()
