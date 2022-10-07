@@ -4,6 +4,7 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
+from sqlalchemy import exc
 import threading, requests, json, time
 from pprint import pprint as P
 from flask import Flask, redirect, render_template, request, jsonify, url_for,flash,send_from_directory
@@ -42,8 +43,8 @@ class Workstation:
         self.ID = ID
         self.source_ID = 0
         self.external_ID = f'{ID}4EM'
-        self.url_self = f'http://{wLocIP}:{wLocPort}' #use when working in FASTory network
-        #self.url_self = f'http://{self.get_local_ip()}:{wLocPort}'#130.230.190.118
+        #self.url_self = f'http://{wLocIP}:{wLocPort}' #use when working in FASTory network
+        self.url_self = f'http://{self.get_local_ip()}:{wLocPort}'#130.230.190.118
         self.port = wLocPort
         self.EM = True
         # workstaion servies
@@ -166,22 +167,30 @@ class Workstation:
     # *********************************************
     # auto start/stop energy-measurement service
 
-    def invoke_EM_service(self, cmd='stop'):
+    def invoke_EM_service(self, cmd=False):
+
         if self.EM == False:
             print("Has no EM module.")
             return
-        body = {
-            "cmd": cmd,
-            "send_measurement_ADDR": self.measurement_ADD,
-            "ReceiverADDR": 'http://192.168.100.100:2000/noware'  # f'{self.url_self}/noware'
-        }
-        try:
-            r = requests.post(url=self.EM_service_url, json=body)
+        URL = f'http://192.168.{self.ID}.4/rest/events/send_rest/notifs'
+        if cmd == True or cmd=="start":
+            try: 
+                headers = {'content-type': 'application/json'}
+                print({"destUrl": self.measurement_ADD})
+                r = requests.post(URL, json={"destUrl": self.measurement_ADD})#,headers=headers)
+                print(f'[X] Event_subscription for send_rest, {r.status_code}, Reason: {r.reason}')
+                #time.sleep(1)
+                r = requests.post(url=self.EM_service_url,json = {"cmd":"setPub" })#,headers=headers)
+                print(f'[X] Energy Service: , {r.status_code}, Reason: {r.reason}')
+                return f"Status Code: {r.status_code}, Reason: {r.reason}"
+            except requests.exceptions.RequestException as err:
+                print("[X-W] OOps: Something Else", err)
+                return err
+        else:
+            r = requests.delete(URL)
+            print(f'[X] ??Event_Unsubscription for send_rest, {r.status_code}, Reason: {r.reason}')
             return f"Status Code: {r.status_code}, Reason: {r.reason}"
-        except requests.exceptions.RequestException as err:
-            print("[X-W] OOps: Something Else", err)
-            return err
-
+    
     # related to DAQ
     # events/alarms/deviceControl etc
 
@@ -189,22 +198,23 @@ class Workstation:
         pass
 
     def sendEvent(self, type, text):
-        payload = {"externalId": self.get_external_ID(),
-                   "type": type,
-                   "text": text}
-        try:
-            req = requests.post(f'{CONFIG.SYNCH_URL}/sendEvent',
-                                params=payload,
-                                headers=self.get_headers())
-            print(f'[X-W-SnDE] {req.status_code}')
-            if req.status_code !=200:
-                time.sleep(1)
-                req = requests.post(f'{CONFIG.SYNCH_URL}/sendEvent',
-                                params=payload,
-                                headers=self.get_headers())
+        pass
+        # payload = {"externalId": self.get_external_ID(),
+        #            "type": type,
+        #            "text": text}
+        # try:
+        #     req = requests.post(f'{CONFIG.SYNCH_URL}/sendEvent',
+        #                         params=payload,
+        #                         headers=self.get_headers())
+        #     print(f'[X-W-SnDE] {req.status_code}')
+        #     if req.status_code !=200:
+        #         time.sleep(1)
+        #         req = requests.post(f'{CONFIG.SYNCH_URL}/sendEvent',
+        #                         params=payload,
+        #                         headers=self.get_headers())
                                 
-        except requests.exceptions.RequestException as err:
-            print("[X-W-SnDE] OOps: Something Else", err)
+        # except requests.exceptions.RequestException as err:
+        #     print("[X-W-SnDE] OOps: Something Else", err)
 
     def deviceControl(self):
         pass
@@ -281,17 +291,21 @@ class Workstation:
     # checks for active zones on conveyor of a particular workstation
 
     def get_ZoneStatus(self):
-        load = 0
-        ActiveZone = ''
-        for i in [1, 2, 3, 5]:
-            req = requests.post(
-                f'http://192.168.{self.ID}.2/rest/services/Z{i}', json={"destUrl": ""})
-            if req.json().get('PalletID') == '-1':
-                ActiveZone = ActiveZone + '0'
-            else:
-                ActiveZone = ActiveZone + '1'
-                load = load + 1
-        return (load, ActiveZone[::-1])
+        try:
+            load = 0
+            ActiveZone = ''
+            for i in [1, 2, 3, 5]:
+                req = requests.post(
+                    f'http://192.168.{self.ID}.2/rest/services/Z{i}', json={"destUrl": ""})
+                if req.json().get('PalletID') == '-1':
+                    ActiveZone = ActiveZone + '0'
+                else:
+                    ActiveZone = ActiveZone + '1'
+                    load = load + 1
+            return (load, ActiveZone[::-1])
+        except ValueError:  # includes simplejson.decoder.JSONDecodeError
+            print('[X] Decoding JSON has failed')
+
 
     def info(self):
         """
@@ -354,6 +368,7 @@ class Workstation:
             else:
                 self.set_stop_recording()
                 self.set_count()
+                print(f'{self.stop_recording}')
                 return "OK"
 
         @app.route('/info')  # ,methods=['GET']
@@ -366,93 +381,102 @@ class Workstation:
 
         ###########Measurements for PR##########
 # EM measurements from FASTory received here and stored to DB
-        @app.route('/PR-measurements', methods=['GET', 'POST'])
-        def measurements4PR():
+        # @app.route('/PR-measurements', methods=['GET', 'POST'])
+        # def measurements4PR():
          
-            if int(time.time() - self.access_token_time) >= (self.expire_time - 50):
-                print(f'[X-W-sm] Accessing New Token.......')
-                self.get_access_token()
+        #     if int(time.time() - self.access_token_time) >= (self.expire_time - 50):
+        #         print(f'[X-W-sm] Accessing New Token.......')
+        #         self.get_access_token()
             
-            if request.method == 'GET':
+        #     if request.method == 'GET':
             
-                page = request.args.get('page',1,type=int)
-                measurements = EnergyMeasurements.query.filter_by(WorkCellID=self.ID).order_by(
-                    EnergyMeasurements.id.desc()).paginate(per_page=20, page=page )#[:500]
-                if measurements:
-                    return render_template(f'workstations/PR_measurements.html',
-                                        title='History',
-                                        contxt={"measurements":measurements,
-                                                        "id":self.ID,
-                                                        "hasEM":self.EM})
-                else:
-                    return render_template(f'workstations/PR_measurements.html',
-                                        title='History',
-                                        contxt={"measurements":measurements,
-                                                        "id":self.ID,
-                                                        "hasEM":self.EM})
-            else:
-                if self.EM:
-                    self.count_inc()
-                    print(self.count,self.stop_recording,self.classLabel)
+        #         page = request.args.get('page',1,type=int)
+        #         measurements = EnergyMeasurements.query.filter_by(WorkCellID=self.ID).order_by(
+        #             EnergyMeasurements.id.desc()).paginate(per_page=20, page=page )#[:500]
+        #         if measurements:
+        #             return render_template(f'workstations/PR_measurements.html',
+        #                                 title='History',
+        #                                 contxt={"measurements":measurements,
+        #                                                 "id":self.ID,
+        #                                                 "hasEM":self.EM})
+        #         else:
+        #             return render_template(f'workstations/PR_measurements.html',
+        #                                 title='History',
+        #                                 contxt={"measurements":measurements,
+        #                                                 "id":self.ID,
+        #                                                 "hasEM":self.EM})
+        #     else:
+        #         if self.EM:
 
-                    # Averaging the power
-                    print(f'-----{request.json.get("active_power_c")}')
-                    if self.count == 10 and self.stop_recording <= 100:
-                        l,az = self.get_ZoneStatus()
-                        #print(type(request.json),az, l)
-                        #print(request.json)
-                        data_in = request.json
-                        self.powerlist.append(data_in.get("active_power_c"))
+        #             # Averaging the power
+        #             print(f'-----{request.json.get("active_power_c")}')
+        #             if self.stop_recording <= 100:
+        #                 l,az = self.get_ZoneStatus()
+        #                 #print(type(request.json),az, l)
+        #                 #print(request.json)
+        #                 data_in = request.json
+        #                 #self.powerlist.append(data_in.get("active_power_c"))
 
 
-                        AvgPower = round(sum(self.powerlist) / len(self.powerlist), 3)
-                        nominalPower = round((AvgPower / 1000) * 100, 3)
-                        nP = np.round(CONFIG.Power_scaler.transform([[AvgPower]]),4)[0,0]
-                        nL = np.round(CONFIG.Load_scaler.transform([[l]]),4)[0,0]
-                        pred = helper.predict(nP,nL)
-                        measurements = EnergyMeasurements( 
-                            WorkCellID=self.ID,
-                            RmsVoltage=data_in.get("rms_voltage_c"),
-                            RmsCurrent=data_in.get("rms_current_c"),
-                            Power=AvgPower,
-                            Nominal_Power=nominalPower,
-                            ActiveZones=az,
-                            LoadCombination = self.LoadCombination,
-                            Load=l,
-                            BeltTension = self.BeltTension,
-                            TrueClass = self.classLabel,
-                            NormalizedPower = nP,
-                            NormalizedLoad = nL,
-                            PredictedClass = pred,
-                            Fkey=data_in.get("CellID"),
-                            line_Frequency = data_in.get("line_frequency")
+        #                 AvgPower = data_in.get("active_power_c")#AvgPower = round(sum(self.powerlist) / len(self.powerlist), 3)
+        #                 nominalPower = round((AvgPower / 1000) * 100, 3)
+        #                 nP = np.round(CONFIG.Power_scaler.transform([[AvgPower]]),4)[0,0]
+        #                 nL = np.round(CONFIG.Load_scaler.transform([[l]]),4)[0,0]
+        #                 #pred = helper.predict(nP,nL)
+        #                 measurements = EnergyMeasurements( 
+        #                     WorkCellID=self.ID,
+        #                     RmsVoltage=data_in.get("rms_voltage_c"),
+        #                     RmsCurrent=data_in.get("rms_current_c"),
+        #                     Power=AvgPower,
+        #                     Nominal_Power=nominalPower,
+        #                     ActiveZones=az,
+        #                     LoadCombination = self.LoadCombination,
+        #                     Load=l,
+        #                     BeltTension = self.BeltTension,
+        #                     TrueClass = self.classLabel,
+        #                     NormalizedPower = nP,
+        #                     NormalizedLoad = nL,
+        #                     PredictedClass = self.classLabel,#pred,
+        #                     Fkey=data_in.get("CellID"),
+        #                     line_Frequency = data_in.get("line_frequency")
                             
-                            )
+        #                     )
+                        
+        #                 db.session.add(measurements)
+        #                 db.session.commit()
+        #                 print(f'[X] {AvgPower}W ,{self.stop_recording}, {az}, {l}, {self.classLabel}')
+        #                 # features = np.round(np.array(np.append([[nP]],[[nL]]),ndmin=2), 4)
+        #                 # features = np.round(np.array(np.append(CONFIG.Power_scaler.transform([[AvgPower]]),
+        #                 #                                     CONFIG.Load_scaler.transform([[l]])),
+        #                 #                             ndmin=2), 4)
+        #                 # payload = {"externalId": self.external_ID,
+        #                 #         "fragment": f'belt-tension-class-pred'
+        #                 #         }
+        #                 # req_pred = requests.post(url=f'{CONFIG.SYNCH_URL}/sendCustomMeasurement',
+        #                 #                         params=payload, headers=self.headers,
+        #                 #                         json={"powerConsumption": round(features[0][0], 3),
+        #                 #                             "load": round(features[0][1], 3)})
+        #                 # # if want to sending measurements to ZDMP-DAQ then uncomment following requests
+        #                 # req_V = requests.post(
+        #                 #     url=f'{CONFIG.SYNCH_URL}/sendMeasurement?externalId={self.external_ID}&fragment=CurrentMeasurement&value={data_in.get("rms_current_c")}&unit=A',
+        #                 #     headers=self.headers)
 
-                        db.session.add(measurements)
-                        db.session.commit()
+        #                 # req_A = requests.post(
+        #                 #     url=f'{CONFIG.SYNCH_URL}/sendMeasurement?externalId={self.external_ID}&fragment=VoltageMeasurement&value={data_in.get("rms_voltage_c")}&unit=V',
+        #                 #     headers=self.headers)
 
-                        # if want to sending measurements to ZDMP-DAQ then uncomment following requests
-                        # req_V = requests.post(
-                        #     url=f'{CONFIG.SYNCH_URL}/sendMeasurement?externalId={self.external_ID}&fragment=CurrentMeasurement&value={data_in.get("rms_current_c")}&unit=A',
-                        #     headers=self.headers)
-                        # req_A = requests.post(
-                        #     url=f'{CONFIG.SYNCH_URL}/sendMeasurement?externalId={self.external_ID}&fragment=VoltageMeasurement&value={data_in.get("rms_voltage_c")}&unit=V',
-                        #     headers=self.headers)
-                        # req_P = requests.post(
-                        #     url=f'{CONFIG.SYNCH_URL}/sendMeasurement?externalId={self.external_ID}&fragment=PowerMeasurement&value={AvgPower}&unit=W',
-                        #     headers=self.headers)
-                        # print( f'[X-W-DAQ] ({req_A.status_code}, {req_V.status_code}, {req_P.status_code})')
-                        print(f'[X-PR] Record added to DB({self.ID})....{self.count}-{self.stop_recording}-{az}-{l}-{self.classLabel}--{pred}')
-                        self.set_count()
-                        self.stop_recording_inc()
-                        self.powerlist.clear()
-                        # for real-time plot ---->  power,voltage,current
-                        self.update_PVC(AvgPower, data_in.get("rms_voltage_c"), data_in.get("rms_current_c"))
-                        return jsonify({"results": data_in.get("active_power_c")})
+        #                 # req_P = requests.post(
+        #                 #     url=f'{CONFIG.SYNCH_URL}/sendMeasurement?externalId={self.external_ID}&fragment=PowerMeasurement&value={AvgPower}&unit=W',
+        #                 #     headers=self.headers)
+        #                 # print( f'[X-W-DAQ] ({req_A.status_code}, {req_V.status_code}, {req_P.status_code})')
+        #                 # print(f'[X-PR] Record added to DB({self.ID})....{self.count}-{self.stop_recording}-{az}-{l}-{self.classLabel}--{pred}')
+        #                 self.stop_recording_inc()
+        #                 # for real-time plot ---->  power,voltage,current
+        #                 self.update_PVC(AvgPower, data_in.get("rms_voltage_c"), data_in.get("rms_current_c"))
+        #                 return jsonify({"results": data_in.get("active_power_c")})
 
                 
-                return 'NOT-OK'
+        #         return 'NOT-OK'
         ########################################
         # EM measurements from FASTory received here and stored to DB
         @app.route('/measurements', methods=['GET', 'POST'])
@@ -484,57 +508,57 @@ class Workstation:
             else:
                 if self.EM:
                     self.count_inc()
-                    print(self.count,self.stop_recording)
-
                     # Averaging the power
-                    if self.count == 10 and self.stop_recording <= 100:
+                    if self.stop_recording <= 100 :#<= 10 >=0
                         l,az = self.get_ZoneStatus()
-                        print(type(request.json),az, l)
-                        #print(request.json)
                         data_in = request.json
-                        self.powerlist.append(data_in.get("active_power_c"))
+                        try:    
+                            AvgPower = data_in.get("active_power_c")#round(sum(self.powerlist) / len(self.powerlist), 3)
+                            nominalPower = round((AvgPower / 1000) * 100, 3)
+                            measurements = MeasurementsForDemo( #EnergyMeasurements MeasurementsForDemo
+                                WorkCellID=self.ID,
+                                RmsVoltage=data_in.get("rms_voltage_c"),
+                                RmsCurrent=data_in.get("rms_current_c"),
+                                Power=AvgPower,
+                                Nominal_Power=nominalPower,
+                                ActiveZones=az,
+                                Load=l,
+                                Fkey=data_in.get("CellID"),
+                                line_Frequency = data_in.get("line_frequency")
+                                #info=data_in.get("CellID")
+                                )
 
+                            # db.session.add(measurements)
+                            # db.session.commit()
 
-                        AvgPower = round(sum(self.powerlist) / len(self.powerlist), 3)
-                        nominalPower = round((AvgPower / 1000) * 100, 3)
-                        measurements = MeasurementsForDemo( #EnergyMeasurements MeasurementsForDemo
-                            WorkCellID=self.ID,
-                            RmsVoltage=data_in.get("rms_voltage_c"),
-                            RmsCurrent=data_in.get("rms_current_c"),
-                            Power=AvgPower,
-                            Nominal_Power=nominalPower,
-                            ActiveZones=az,
-                            Load=l,
-                            Fkey=data_in.get("CellID"),
-                            line_Frequency = data_in.get("line_frequency")
-                            #info=data_in.get("CellID")
-                            )
+                         # sending measurements to ZDMP-DAQ
+                            req_V = requests.post(
+                                url=f'{CONFIG.SYNCH_URL}/sendMeasurement?externalId={self.external_ID}&fragment=CurrentMeasurement&value={data_in.get("rms_current_c")}&unit=A',
+                                headers=self.headers)
+                            req_A = requests.post(
+                                url=f'{CONFIG.SYNCH_URL}/sendMeasurement?externalId={self.external_ID}&fragment=VoltageMeasurement&value={data_in.get("rms_voltage_c")}&unit=V',
+                                headers=self.headers)
+                            req_P = requests.post(
+                                url=f'{CONFIG.SYNCH_URL}/sendMeasurement?externalId={self.external_ID}&fragment=PowerMeasurement&value={AvgPower}&unit=W',
+                                headers=self.headers)
+                            print( f'[X-W-DAQ] ({req_A.status_code}, {req_V.status_code}, {req_P.status_code})')
+                            print(f'[X-WdbA] Record added to DB({self.ID})....{self.count}-{self.stop_recording}-{az}-{l}')
+                            self.stop_recording_inc()
+                            # for real-time plot ---->  power,voltage,current
+                            self.update_PVC(AvgPower, data_in.get("rms_voltage_c"), data_in.get("rms_current_c"))
+                            return jsonify(res= 200)
+                        except exc.SQLAlchemyError as err:
+                                print("[X-W] OOps: Something Else", err)
+                        except requests.exceptions.RequestException as err:
+                            print("[X] OOps: Something Else", err)
 
-                        # db.session.add(measurements)
-                        # db.session.commit()
-
-                        # sending measurements to ZDMP-DAQ
-                        # req_V = requests.post(
-                        #     url=f'{CONFIG.SYNCH_URL}/sendMeasurement?externalId={self.external_ID}&fragment=CurrentMeasurement&value={data_in.get("rms_current_c")}&unit=A',
-                        #     headers=self.headers)
-                        # req_A = requests.post(
-                        #     url=f'{CONFIG.SYNCH_URL}/sendMeasurement?externalId={self.external_ID}&fragment=VoltageMeasurement&value={data_in.get("rms_voltage_c")}&unit=V',
-                        #     headers=self.headers)
-                        # req_P = requests.post(
-                        #     url=f'{CONFIG.SYNCH_URL}/sendMeasurement?externalId={self.external_ID}&fragment=PowerMeasurement&value={AvgPower}&unit=W',
-                        #     headers=self.headers)
-                        # print( f'[X-W-DAQ] ({req_A.status_code}, {req_V.status_code}, {req_P.status_code})')
-                        # print(f'[X-WdbA] Record added to DB({self.ID})....{self.count}-{self.stop_recording}-{az}-{l}')
-                        self.set_count()
-                        self.stop_recording_inc()
-                        self.powerlist.clear()
-                        # for real-time plot ---->  power,voltage,current
-                        self.update_PVC(AvgPower, data_in.get("rms_voltage_c"), data_in.get("rms_current_c"))
-                        return jsonify({"results": data_in.get("active_power_c")})
-                    #self.set_stop_recording()
-                    #time.sleep(10)
-                
-                return 'NOT-OK'
+                        #time.sleep(10)
+                    else:
+                        #print(f'>>>>>>{self.stop_recording}')
+                        print(f'[X] Reset Counter {request.json.get("active_power_c")}')
+                        time.sleep(0.1)
+                        return jsonify(res= 200)
+            return jsonify(res= 200)
 
         # for historic Data
         @app.route('/history', methods=['GET'])
@@ -645,6 +669,13 @@ class Workstation:
                 return redirect(url_for('services'))# res
 
         # simulation routes
+        @app.route('/api/energyService', methods =['POST'])
+        def api_energyService():
+            print(f'[X] Query Params converted to Dict--{request.args.to_dict()}')
+            #instruction =request.args.to_dict().get("cmd")
+
+            self.invoke_EM_service(cmd=request.args.to_dict().get("cmd"))
+            return "ok"
         @app.route('/api/stop_simulations', methods =['POST'])
         def stop_simulations():
             self.set_stop_simulations(True)
